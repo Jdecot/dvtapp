@@ -3,12 +3,10 @@ from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 import json
 from google.cloud import bigquery
 import manage_table
-import schemafield_from_value_v2
+import schemafield_from_value
 from flask import Flask, request, jsonify
 import os
 import signal
-
-
 
 def process_for_columns_with_types(element):
     """
@@ -19,13 +17,13 @@ def process_for_columns_with_types(element):
     # For each columns in the JSON row of the data file
     for key, value in data.items():
         # For a column, we use the value to identify the schemafield
-        schemafield_detected = schemafield_from_value_v2.schemafield_from_value(key, value)
+        schemafield_detected = schemafield_from_value.schemafield_from_value(key, value)
 
         # If the currently studied key is already in the column list that we are preparing to create the table
         if key in all_columns:
             # So we check if for this row, the schematype is the same or not, if it's different, we take the more suitable one
             if all_columns[key] != schemafield_detected :
-                new_schema_field = schemafield_from_value_v2.merge_schemafields(all_columns[key], schemafield_detected)
+                new_schema_field = schemafield_from_value.merge_schemafields(all_columns[key], schemafield_detected)
                 print(f"Modify Column {key} : {schemafield_detected} in row | {all_columns[key]} in all_columns ==> {new_schema_field}")
                 all_columns[key] = new_schema_field
 
@@ -35,19 +33,6 @@ def process_for_columns_with_types(element):
             print(f"New Column {key} (value = {value}) ==> {schemafield_detected}")
 
     return data
-
-
-def create_missing_columns(bq_client, dataset_id, table_id, all_columns, example_data):
-    """
-    Add all missing columns to BigQuery table.
-    """
-    # Get existing columns in the BigQuery table schema
-    missing_columns = manage_table.compare_dict_to_schema(bq_client, dataset_id, table_id, example_data)
-    
-    # Add missing columns to BigQuery
-    for column in missing_columns:
-        SchemaField = schemafield_from_value_v2(column, example_data[column])
-        manage_table.add_column_to_table(bq_client, dataset_id, table_id, column, SchemaField)
 
 
 def process_for_loading(element):

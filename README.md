@@ -1,96 +1,16 @@
-# dvtapp
-Data Engineering pipeline with GCP. A file arrives in Cloud Storage then a Cloud Function is triggered and the file's data are loaded into BigQuery table. 
+# Description of the solution
+
+Get a look to the Google Slides ! 
 
 
-
-## Things done
-Create pipeline.py
-Create service account and download it
-Manage IAM rights for service account
-
-Install poetry
-Install poetry-plugin-dotenv
-Create .env file at root and add env variable : path to json SA
-All poetry commands then incorporate these env variables
-
-Install Docker Desktop
-Connecter Docker à Artifact Registry : gcloud auth configure-docker northamerica-northeast1-docker.pkg.dev
-
-
-## Dev history
-pipeline_0.py : first try
-pipeline_working_1.py : first working on gcp with credentials loaded from json file
-pipeline_working_2.py : first working on local with writing of json data file to another file
-pipeline_working_3.py : Pipeline now extract schema from json data and write it in another file
-pipeline_working_6.py : Pipeline detects well the type of json data and create SchemaField according to them, can add column with right schemafield
-pipeline_working_7.py : Data insertion works and retry mechanism is on
-main.py : Fully working, commit & push on git
-
-## Service account
-C:\jsongcp\dvtapp-198e02b1453a.json
-
-## Autre
-export GOOGLE_APPLICATION_CREDENTIALS=C:\jsongcp\dvtapp-198e02b1453a.json
-desktop-ukccead\julie
-
-Connaître son domaine et username windows : desktop-ukccead\julie
-Pour ajouter un utilisateur à partir du cmd : net localgroup docker-users desktop-ukccead\julie /add
-
-
-
-## Commandes Docker
-Ajouter variable env dans le dockerfile
-ENV GOOGLE_APPLICATION_CREDENTIALS=/path/vers/votre/fichier/service-account.json
-
-Lancer un conteneur en mode interactif
-docker run -it mon-image /bin/bash
-
-### Utiliser Docker
-Construire l'image : docker build -t mon-image1 .
-Tester l'image localement : docker run -it mon-pipeline
-Tester un script dans l'image : docker run mon-image1 python main.py
-
-Docker run image : 
-    Run simple
-        docker run mon-image1 python dvtapp/pipeline_8.py
-    Avec variable d'environnement
-        docker run -e GOOGLE_APPLICATION_CREDENTIALS=C:\jsongcp\dvtapp-198e02b1453a.json mon-image1 python dvtapp/pipeline_8.py
-    Avec un volume pour que le dossier avec le json SA soit accessible
-        docker run -v C:\jsongcp:/app/config -e GOOGLE_APPLICATION_CREDENTIALS=/app/config/dvtapp-198e02b1453a.json mon-image1 python dvtapp/pipeline_8.py
-
-### Clear cache Docker
-docker image prune -a -f 
-docker container prune -f
-docker network prune -f
-docker volume prune -f 
-
-### Connect Docker
-gcloud auth configure-docker northamerica-northeast1-docker.pkg.dev
-
-se connecter à GCR avec un SA : 
-docker login -u _json_key -p $(gcloud auth print-access-token) https://gcr.io
-gcloud auth print-access-token | docker login -u _json_key -p- https://gcr.io
-
-
-Accéder au container :  docker exec -it dvtapp-image-9 bash 
-Checker les ports qui écoutent : netstat -tulnp | grep LISTEN | grep 8080 
-
-
-## Se connecter à GCP depuis le terminal
-se loguer : gcloud auth login
-Activer le SA : gcloud auth activate-service-account --key-file=C:\jsongcp\dvtapp-198e02b1453a.json
-voir le compte actif actuel : gcloud auth list
-Définir le compte à utiliser : gcloud config set account `ACCOUNT`
-
-
-# Enchainement des commandes
+# Steps to test and deploy
 
 ### 1 - Test in local
 1.1/ Start Flask server : 
     poetry run python dvtapp/main.py --runner=DirectRunner --project=dvtapp
 
 1.2/ Send request to Flask server when it runs : 
-    curl -X POST -H "Content-Type: application/json" -d "{\"file\": \"gs://dvtapp_bucket_receiving_json_files/data.json\"}" http://127.0.0.1:8080
+    curl -X POST -H "Content-Type: application/json" -d "{\"file\": \"gs://dvtapp_bucket_receiving_json_files/data.json\", \"project_id\": \"dvtapp\", \"region\": \"us-east1\", \"dataset_id\": \"ds_dvtapp\"}" http://127.0.0.1:8080
 
 
 ### 2 - Build Docker image
@@ -126,8 +46,6 @@ gcloud container images list-tags northamerica-northeast1-docker.pkg.dev/dvtapp/
 
 
 ### 6 - Deploy image with Cloud Run
-Service url : https://dvtapp-service-809726561816.us-east1.run.app
-
 Deploy :
 gcloud run deploy dvtapp-service --image=northamerica-northeast1-docker.pkg.dev/dvtapp/dvtappdepot/dvtapp-image-9 --region=us-east1
 
@@ -136,11 +54,64 @@ curl -X POST "https://dvtapp-service-809726561816.us-east1.run.app" -H "Content-
 
 
 ### 7 - Deploy the Cloud Function 
-gcloud functions deploy hello_gcs --runtime python310 --trigger-resource dvtapp_bucket_receiving_json_files --trigger-event google.storage.object.finalize --region us-east1 --source "C:/Users/Julie/OneDrive/Documents/devoteamapp/app/dvtapp/cf/"
+gcloud functions deploy hello_gcs --runtime python310 --trigger-resource dvtapp_bucket_receiving_json_files --trigger-event google.storage.object.finalize --region us-east1 --source "C:/Users/Julie/OneDrive/Documents/devoteamapp/app/cf/"
+
+Test in local :
+poetry run python cf/main.py
+poetry run python cf/main.py --file "gs://dvtapp_bucket_receiving_json_files/data.json" --project_id "dvtapp" --region "us-east1" --dataset_id "ds_dvtapp"
 
 
 
-# Other
+# Not important / others, infos and commands
+
+## Infos
+C:\jsongcp\dvtapp-198e02b1453a.json
+gs://dvtapp_bucket_receiving_json_files
+Service url : https://dvtapp-service-809726561816.us-east1.run.app
+
+## Commandes Docker
+Ajouter variable env dans le dockerfile
+ENV GOOGLE_APPLICATION_CREDENTIALS=/path/vers/votre/fichier/service-account.json
+
+Lancer un conteneur en mode interactif
+docker run -it mon-image /bin/bash
+
+### Utiliser Docker
+Construire l'image : docker build -t mon-image1 .
+Tester l'image localement : docker run -it mon-pipeline
+Tester un script dans l'image : docker run mon-image1 python main.py
+
+Docker run image : 
+    Run simple
+        docker run mon-image1 python dvtapp/pipeline_8.py
+    Avec variable d'environnement
+        docker run -e GOOGLE_APPLICATION_CREDENTIALS=C:\jsongcp\dvtapp-198e02b1453a.json mon-image1 python dvtapp/pipeline_8.py
+    Avec un volume pour que le dossier avec le json SA soit accessible
+        docker run -v C:\jsongcp:/app/config -e GOOGLE_APPLICATION_CREDENTIALS=/app/config/dvtapp-198e02b1453a.json mon-image1 python dvtapp/pipeline_8.py
+
+### Clear cache Docker
+docker image prune -a -f 
+docker container prune -f
+docker network prune -f
+docker volume prune -f 
+
+### Connect Docker
+gcloud auth configure-docker northamerica-northeast1-docker.pkg.dev
+
+se connecter à GCR avec un SA : 
+docker login -u _json_key -p $(gcloud auth print-access-token) https://gcr.io
+gcloud auth print-access-token | docker login -u _json_key -p- https://gcr.io
+
+Accéder au container :  docker exec -it dvtapp-image-9 bash 
+Checker les ports qui écoutent : netstat -tulnp | grep LISTEN | grep 8080 
+
+
+## Se connecter à GCP depuis le terminal
+se loguer : gcloud auth login
+Activer le SA : gcloud auth activate-service-account --key-file=C:\jsongcp\dvtapp-198e02b1453a.json
+voir le compte actif actuel : gcloud auth list
+Définir le compte à utiliser : gcloud config set account `ACCOUNT`
+
 ## Poetry Comands
 poetry run python dvtapp/pipeline_8.py --runner=DirectRunner --project=dvtapp
 poetry run run_pipeline -e GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/file.json
