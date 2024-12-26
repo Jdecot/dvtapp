@@ -109,7 +109,6 @@ def add_column_to_table(client, dataset_id, table_id, column_name, SchemaField):
         column_name (str): The name of the column to add.
         SchemaField (bigquery.SchemaField): The schema field definition for the new column.
     """
-
     table_ref = client.dataset(dataset_id).table(table_id)
     table = client.get_table(table_ref)
 
@@ -121,7 +120,7 @@ def add_column_to_table(client, dataset_id, table_id, column_name, SchemaField):
     table.schema = hard_copy_schema
     table = client.update_table(table, ["schema"])
     table = client.get_table(table_ref) 
-    print("Column added : ", column_name)
+
 
 
 def compare_dict_to_schema(client, dataset_id, table_id, data_dict):
